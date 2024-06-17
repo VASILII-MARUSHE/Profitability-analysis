@@ -1,0 +1,531 @@
+---
+title: "Case study for bank Vasilii Marushev"
+editor_options:
+  markdown:
+    wrap: 72
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, include=FALSE}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(agricolae)
+```
+
+```{r, include=TRUE, warning=FALSE}
+broker_list <- read.csv2("C:/Users/vmaru/Downloads/broker_list[7735].csv")
+hist_list <- read.csv2("C:/Users/vmaru/Downloads/historical_sample[7726].csv")
+```
+
+## 1. IQ and age
+
+Let's see how looks our data on boxplot. On our graph we can see that
+every category is allocated on different level of IQ
+
+```{r, include=TRUE}
+
+
+ggplot(hist_list, aes(y = IQ, cost_type)) +
+geom_boxplot(aes(fill = cost_type))
+
+
+```
+
+Let's prove our assumption using oneway ANOVA test, using this test we
+proved that at least one group is different. It is mean that belonging
+to group can influence IQ.
+
+```{r, include = T, warning=FALSE}
+
+model_IQ <- aov(IQ ~ cost_type, data = hist_list)
+
+summary(model_IQ)
+
+```
+
+Let's determine if there's a significant difference in the average
+values of different groups using Fisher's Least Significant Difference
+Method. According to this test, we can conclude that our output groups
+vary, suggesting that IQ affects the distribution channel
+
+```{r, include = T, warning=FALSE}
+
+print(LSD.test(model_IQ, "cost_type"))
+
+```
+
+Let's see how looks our data on boxplot. On our graph we can see that
+every category is allocated on different level of Age
+
+```{r, include=TRUE}
+ggplot(hist_list, aes(y = Age, cost_type)) +
+geom_boxplot(aes(fill = cost_type))
+
+```
+
+Let's prove our assumption using oneway ANOVA test, using this test we
+proved that at least one group is different. It is mean that belonging
+to group can influence IQ.
+
+```{r, include = T, warning=FALSE}
+
+model_Age <- aov(Age ~ cost_type, data = hist_list)
+
+summary(model_Age)
+
+```
+
+We are examining a statistical test to determine if there is a
+significant difference in the mean values of each group using Fisher's
+Least Significant Difference Method. Based on this test, we observe that
+the groups in our output are indeed different, indicating that IQ has an
+influence on the distribution channel.
+
+```{r, include = T}
+
+print(LSD.test(model_Age, "cost_type"))
+
+```
+
+## 2. Relationship between IQ and age
+
+Let's see our data on scatter plot. On this graph we can see obvious
+linear positive correlation.
+
+```{r, include = T}
+ggplot(hist_list, aes(y = IQ, Age)) +
+geom_point()
+```
+
+As confirmation of my word calculate correlation coefficient.
+
+```{r, include = T}
+cor(hist_list$Age, hist_list$IQ)
+```
+
+A correlation coefficient of 0.98 between IQ and Age indicates a very
+strong positive linear relationship between the two variables. In this
+case, as a person's age increases, their IQ tends to also increase. We
+can meet with problem of multicollinearity in previous topic. It can
+make it hard to pinpoint which factor is truly influencing the outcome
+we're trying to understand. Because one factor influence on other or on
+verse.
+
+## 3. Relationship between income and default rate
+
+Calculation of mean default rate for each income group.
+
+```{r, include = T}
+
+hist_list %>%
+  group_by(Inc_Gr) %>%
+  summarise(def_rate = mean(Default_flg))
+
+```
+
+In this part I am going to conduct Anova test to find out is here
+significant difference at least between two groups.
+
+```{r, include = T}
+
+model_Inc <- aov(Default_flg ~ Inc_Gr, data = hist_list)
+
+summary(model_Inc)
+
+```
+
+We are conducting a statistical test to determine if there are
+significant differences in the mean values among multiple groups using
+Fisher's Least Significant Difference Method. Our analysis identifies
+three distinct groups: a) those in the first income group, b) those in
+the second and third groups, and c) those in the fourth group. This
+suggests a relationship exists between groups a, b, and c. Specifically,
+individuals receiving social security appear to be the most susceptible
+to default risk. Those with incomes below 15,000 pose a lesser risk
+compared to social security recipients, although the risk remains
+notable. Conversely, the group with salaries exceeding 15,000 presents a
+significantly lower risk, given their average default rate of 0.02. From
+an economic standpoint, we observe a correlation between higher income
+levels and a reduced probability of default. This correlation can be
+attributed to individuals with higher incomes having greater savings or
+the ability to more easily accumulate the 30,000 required for payment.
+
+```{r,include = T}
+
+print(LSD.test(model_Inc, "Inc_Gr"))
+
+```
+
+## 4. Describing full portfolio
+
+Let's find number of defaults and observation. We can see that we get
+10000 of observation and 530 defaults
+
+```{r, include = T}
+
+N <- NROW(hist_list$Default_flg)
+N
+num_of_def <- sum(hist_list$Default_flg)
+num_of_def
+
+```
+
+According on our previous calculation let's calculate defoalt rate.
+Default rate is ratio between number of default and number of
+observation.
+
+```{r, include = T}
+defolt <- num_of_def/N
+defolt
+```
+
+Let's compute Loss Given Default (LGD), which represents the average
+loss on a loan for a customer in the event of default. In my calculation
+process, I created a new dataset that exclusively comprises data from
+defaulting clients. Following this, I assigned losses for each type of
+housing as outlined in the text, and then calculated the average loss in
+the event of default. We can see that LGD equal to 0.65 it means that in
+case of default banks lost 65% of loan in average.
+
+```{r, include = T}
+def_clients <- hist_list[hist_list$Default_flg == 1, ]
+
+def_clients$Loss[def_clients$Housing == 3] = 0.2
+def_clients$Loss[def_clients$Housing != 3] = 0.7
+
+LGD <- mean(def_clients$Loss)
+LGD
+
+
+```
+
+Let's calculate average IQ.
+
+```{r, include = T}
+mean(hist_list$IQ)
+
+```
+
+And average age of customers.
+
+```{r, include = T}
+mean(hist_list$Age)
+
+```
+
+In that part we are going to calculate most frequency type of
+applicants' accommodation. The most frequency applicant living with
+parents.
+
+```{r, include = T}
+freq_table_house <- hist_list %>%
+  group_by(Housing)%>%
+  count()
+
+freq_table_house[freq_table_house$n == max(freq_table_house$n),]
+  
+
+```
+
+In that part we are going to calculate most frequency type of
+applicants' income. The most frequency group of clients have a salary
+higher than 15 000.
+
+```{r, include = T}
+
+freq_table_inc <- hist_list %>%
+  group_by(Inc_Gr)%>%
+  count()
+
+freq_table_inc[freq_table_inc$n == max(freq_table_inc$n),]
+  
+```
+
+41.8% of our applicants have university degree
+
+```{r, include = T}
+
+freq_table_ed <- hist_list %>%
+  group_by(Educ)%>%
+  count()
+
+freq_table_ed[freq_table_ed$n == max(freq_table_ed$n),]
+  
+```
+
+## 5. Profitability
+
+### 5.1 Calculation of profits portfolio for each distributional channel
+
+So lets think that profit is difference between revenue and costs.
+Revenue in ours case of bank is interest rate multiply loan. So we have
+information, that loan is 30 000 for each debt that means we should just
+multiply int. rate on 30000 in case when our client don't have a
+default. Otherwise we have a costs on our product. That costs contain
+cost of default it is average LGD multiply 30 000 and number of default.
+But we shouldn't forget about cost of providing services for
+distributional channel.
+
+Let's calculate revenue for each distributional channel
+
+```{r, include = T}
+
+revenue <- hist_list %>%
+  group_by(cost_type)%>% 
+  filter(Default_flg == 0) %>%
+  summarise(rev = sum(rate)*30000)
+
+revenue
+
+```
+
+Let's calculate costs of default for each distributional channel
+
+```{r, include = T}
+
+cost_def <- def_clients %>%
+  group_by(cost_type) %>%
+  summarise(cost_on_def = sum(Loss)*30000)
+
+cost_def
+
+```
+
+Let's calculate costs of providing services for each distributional
+channel
+
+```{r, include = T, warning= F}
+
+cost_dist <- hist_list %>%
+  group_by(cost_type) %>%
+  summarise(n = n())
+
+cost_dist$cost_for_loan[cost_dist$cost_type == "Broker"] = 1000
+cost_dist$cost_for_loan[cost_dist$cost_type == "www"] = 200
+cost_dist$cost_for_loan[cost_dist$cost_type == "Facebook"] = 300
+cost_dist$total <- cost_dist$n*cost_dist$cost_for_loan
+
+cost_dist
+
+```
+
+Let's calculate profit for each distributional channel.
+
+```{r, include = T}
+
+profit_cz <- revenue$rev - cost_def$cost_on_def - cost_dist$total
+
+profit <- data.frame(distributional_channel = c("Broker", "Facebook", "www"),profit_cz)
+profit
+
+```
+
+Based on our data, we can see that the most profitable distributional
+channel is Facebook. I believe this channel is the most profitable
+because it incurs significantly lower costs than others, and due to the
+relatively small number of applicants, it is more profitable in our
+specific case. However, it's essential to note that all of our channels
+have some level of profitability issues. In the case of the website
+(www), there is a high default rate, while in the case of the Broker
+channel, the cost of every loss provided is high. Facebook seems to
+strike a balance between these extremes.
+
+## 6. Top and least profitable customers
+
+```{r, include = F}
+
+loan = 30000
+
+hist_list$cost_for_loan[hist_list$cost_type == "Broker"] = 1000
+hist_list$cost_for_loan[hist_list$cost_type == "www"] = 200
+hist_list$cost_for_loan[hist_list$cost_type == "Facebook"] = 300
+
+hist_list$Loss[(hist_list$Default_flg ==1)& (hist_list$Housing == 3)] = 0.2*loan
+hist_list$Loss[(hist_list$Default_flg == 1) & (hist_list$Housing != 3)] = 0.7*loan
+hist_list$Loss[hist_list$Default_flg == 0] = 0
+
+hist_list$rev = hist_list$rate*loan
+
+hist_list$rev[hist_list$Default_flg == 1] = 0
+
+hist_list$profit = hist_list$rev - hist_list$Loss - hist_list$cost_for_loan
+
+hist_list %>%
+  filter(Housing == 3 )
+
+```
+
+To finding out the most profitable clients I going to use 95 quantile of
+profit. It means that by this action we will find the 5% of the most
+profitable clients.
+
+```{r, include = T}
+
+q95 <- quantile(hist_list$profit, probs = 0.95, type = 2)
+
+top <- hist_list[hist_list$profit > q95,] 
+
+head(top)
+
+
+
+```
+
+Do the same thing to finding the worst profitable applicants.
+
+```{r, include = T}
+
+q05 <- quantile(hist_list$profit, probs = 0.05, type = 2)
+
+least <- hist_list[hist_list$profit < q05,]
+head(least)
+
+```
+
+This frequency table focuses on education. Observing the table, we note
+a substantial 23% higher percentage of applicants who have completed
+only elementary school among the least profitable group. Additionally, a
+notable difference is evident in the group of individuals with a Ph.D.
+These observations suggest that education might indeed influence our
+profitability. The significant variation in education levels between the
+two profit groups supports this assumption.
+
+```{r, include = T}
+# freq table for the least profitable clients
+Educ_com_w <- least %>% 
+  group_by(Educ) %>%
+  summarise(worst = n()/NROW(least)) 
+# freq table for the most profitable clients
+Educ_com_b <- top %>% 
+  group_by(Educ) %>%
+  summarise(best = n()/NROW(top)) 
+# full join 
+freq_table_Educ <- full_join(Educ_com_b, Educ_com_w, by = "Educ")
+
+freq_table_Educ[is.na(freq_table_Educ)] = 0 # replacing Na
+
+round(freq_table_Educ,2)
+
+```
+
+In this instance, we will construct a frequency table focusing on our
+clients' income. This table presents the ratio within each income group.
+Based on our dataset, there is a notable 22% difference between
+customers earning more than \$30,000. Essentially, the best profitable
+clients have a 22% higher representation of customers with incomes
+exceeding \$30,000 compared to the least profitable clients.
+Additionally, a difference is evident among clients receiving social
+security---this ratio is 13% higher for the least profitable clients
+when compared to the best profitable ones. For the second and third
+income groups, the ratio of clients between the two groups remains
+nearly identical. This observation suggests that income indeed
+influences profitability. However, it's important to note that in the
+previous section, we established that income groups can also influence
+risk.
+
+```{r, include = T}
+
+# freq table for the least profitable clients
+Inc_com_w <- least %>% 
+  group_by(Inc_Gr) %>%
+  summarise(worst = n()/NROW(least)) 
+# freq table for the most profitable clients
+Inc_com_b <- top %>% 
+  group_by(Inc_Gr) %>%
+  summarise(best = n()/NROW(top)) 
+# full join 
+freq_table_Inc_com <- full_join(Inc_com_b, Inc_com_w, by = "Inc_Gr")
+
+freq_table_Inc_com[is.na(freq_table_Inc_com)] = 0 # replacing Na
+
+round(freq_table_Inc_com,2)
+
+```
+
+In this section, we construct an additional frequency table based on the
+type of applicants' accommodation. Initially, I anticipated a
+significant difference in profitability between the best and worst
+candidates living in their own apartments. However, the table reveals a
+different outcome. Personally, I find this category less relevant for
+our analysis, as I believe all categories, except the third one, exhibit
+similar patterns. The ratio in the third category, which is 2% higher
+for the worst profitable, holds negligible significance in our context.
+I maintain the belief that individuals with apartments are more
+reliable, as a default results in lesser loss for the bank.
+
+```{r, include=TRUE}
+
+# freq table for the least profitable clients
+Inc_house_w <- least %>% 
+  group_by(Housing) %>%
+  summarise(worst = n()/NROW(least)) 
+# freq table for the most profitable clients
+Inc_house_b <- top %>% 
+  group_by(Housing) %>%
+  summarise(best = n()/NROW(top)) 
+# full join 
+freq_table_house_com <- full_join(Inc_house_b, Inc_house_w, by = "Housing")
+
+freq_table_house_com[is.na(freq_table_house_com)] = 0 # replacing Na
+
+round(freq_table_house_com,2)
+
+
+```
+
+Let's generate a frequency table that illustrates the distribution of
+marriage statuses among the most and least profitable clients. Upon
+reviewing our table, it becomes evident that our data align closely, and
+I am inclined to believe that marital status has minimal influence on
+our profitability. This conclusion is drawn from the nearly identical
+ratios observed among both the best and worst profitable clients.
+
+```{r, include=TRUE}
+
+# freq table for the least profitable clients
+Mar_com_w <- least %>% 
+  group_by(MarStat) %>%
+  summarise(worst = n()/NROW(least)) 
+# freq table for the most profitable clients
+Mar_com_b <- top %>% 
+  group_by(MarStat) %>%
+  summarise(best = n()/NROW(top)) 
+# full join 
+freq_table_Mar_com <- full_join(Mar_com_b, Mar_com_w, by = "MarStat")
+
+freq_table_Mar_com[is.na(freq_table_Mar_com)] = 0 # replacing Na
+
+round(freq_table_Mar_com,2)
+
+```
+
+# 7. Summarize
+
+So, in this chapter, we'll summarize our findings. Firstly, I'd like to
+highlight that this business may not be inherently profitable due to an
+average interest rate of 0.05 and a default rate of 0.05. In the event
+of default, the bank incurs an average loss of 65% of the loan amount,
+totaling \$19,500 per client.
+
+Additionally, the bank imposes substantial fees on distribution. For
+example, with Broker distribution, our average profit (without
+considering defaults) amounts to 500 CZK. To maintain a neutral default
+rate in this channel, it should not exceed 0.025. While other
+distribution channels charge lower fees, they pose a higher default risk
+compared to the Broker channel. Nevertheless, the average profit,
+excluding provision fees, stands at 1250 CZK.
+
+The majority of our clients originate from the Broker channel, which
+boasts a better default rate than the others. My recommendation to
+enhance profitability is to negotiate with the Broker distribution
+channel to reduce the broker provision, given its relatively high fee.
+Furthermore, I suggest negotiating with each distributional channel to
+implement a payment charge only after repayment.
+
+If this were my bank, I would revise the scoring system and exercise
+caution in providing debt. I've observed that a significant portion of
+our clients struggle to afford this debt, necessitating a proactive
+adjustment of our system before proceeding further."
